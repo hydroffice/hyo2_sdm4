@@ -1,0 +1,43 @@
+name: SDM on Windows
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    continue-on-error: true
+    strategy:
+      max-parallel: 5
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: setup-conda
+      uses: s-weigand/setup-conda@v1
+      with:
+        update-conda: true
+        python-version: '3.11'
+        conda-channels: 'conda-forge'
+    - name: Install dependencies
+      run: |
+        conda config --add channels conda-forge
+        conda install python=3.11 appdirs cartopy gdal matplotlib-base numpy=1.* psutil pyproj qt-material Cython
+        conda install gsw netCDF4 pillow pyserial scipy
+        pip install PySide6
+        pip install --no-deps https://github.com/hydroffice/hyo2_abc2/archive/master.zip
+        pip install --no-deps https://github.com/hydroffice/hyo2_soundspeed/archive/master.zip
+        pip install --no-deps .
+    - name: Lint with flake8
+      run: |
+        conda install flake8
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 .\hyo2\sdm4 --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 .\hyo2\sdm4 --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test with pytest
+      env:
+        COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+      run: |
+        pip install coveralls PyYAML pytest pytest-cov
+        py.test --cov-config=.coveragerc --cov
+        coverage report -m
+        coveralls --rcfile=.coveragerc
